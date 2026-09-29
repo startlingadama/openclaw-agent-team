@@ -21,3 +21,7 @@ workspace/sessions/*
 executions/
 
 workspace/
+
+*.lock
+
+credentials
