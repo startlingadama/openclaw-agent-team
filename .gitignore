@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Secrets (never commit)
+.env
+*.pem
+credentials*.json
+token*.json
+
+# Runtime data
+workspace/sessions/*
+!workspace/sessions/.gitkeep
+executions/
+
+workspace/
