@@ -1,0 +1,17 @@
+agent:
+  id: ceo
+  profile: agents/ceo
+  role: Supervisor
+
+skills: []
+
+tools:
+  allowed:
+    - memory.update
+    - team.members
+    - team.delegate
+  approval_required: []
+
+llm:
+  provider: deepseek
+  model: deepseek-chat

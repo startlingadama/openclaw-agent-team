@@ -1,0 +1,23 @@
+agent:
+  id: google-email
+  profile: agents/google-email
+  role: Email specialist
+
+skills:
+  - google/email-search
+  - google/email-summarization
+  - google/email-triage
+  - google/reply-drafting
+
+tools:
+  allowed:
+    - memory.update
+    - google.email_search
+    - google.email_read
+    - google.email_draft
+  approval_required:
+    - google.email_send
+
+llm:
+  provider: deepseek
+  model: deepseek-chat

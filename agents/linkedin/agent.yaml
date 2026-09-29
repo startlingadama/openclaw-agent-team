@@ -1,0 +1,22 @@
+agent:
+  id: linkedin
+  profile: agents/linkedin
+  role: LinkedIn specialist
+
+skills:
+  - linkedin/linkedin-research
+  - linkedin/content-creation
+  - linkedin/prospect-research
+
+tools:
+  allowed:
+    - memory.update
+    - linkedin.search_profile
+    - linkedin.get_profile
+  approval_required:
+    - linkedin.publish_post
+    - linkedin.send_message
+
+llm:
+  provider: deepseek
+  model: deepseek-chat

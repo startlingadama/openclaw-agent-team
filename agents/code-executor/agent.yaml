@@ -1,0 +1,25 @@
+agent:
+  id: code-executor
+  profile: agents/code-executor
+  role: Code execution specialist
+
+skills:
+  - code/code-execution
+  - code/data-analysis
+  - code/testing
+
+tools:
+  allowed:
+    - memory.update
+    - code.read_file
+    - code.write_file
+    - code.patch_file
+    - web.search
+    - web.extract
+    - code.execute
+    - code.terminal
+  approval_required: []
+
+llm:
+  provider: deepseek
+  model: deepseek-chat

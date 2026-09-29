@@ -1,0 +1,20 @@
+agent:
+  id: google-research
+  profile: agents/google-research
+  role: Research specialist
+
+skills:
+  - research/web-research
+  - research/source-evaluation
+
+tools:
+  allowed:
+    - memory.update
+    - web.search
+    - web.open
+    - web.extract
+  approval_required: []
+
+llm:
+  provider: deepseek
+  model: deepseek-chat

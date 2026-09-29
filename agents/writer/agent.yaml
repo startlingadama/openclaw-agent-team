@@ -1,0 +1,28 @@
+agent:
+  id: writer
+  profile: agents/writer
+  role: Documentation specialist
+
+skills:
+  - writing/technical-documentation
+  - writing/report-writing
+  - writing/editing-proofreading
+  - writing/latex-documents
+
+tools:
+  allowed:
+    - memory.update
+    - web.search
+    - web.open
+    - web.extract
+    - docs.read
+    - docs.write
+    - docs.patch
+  approval_required:
+    - docs.compile_pdf
+  optional:
+    - docs.compile_pdf
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
