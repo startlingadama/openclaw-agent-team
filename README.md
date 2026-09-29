@@ -1,73 +1,132 @@
 # OpenClaw Agent Team
 
-A Python-based multi-agent platform inspired by OpenClaw and Hermes, designed around explicit ReAct agents, Markdown-based memory, reusable Agent Skills and specialized agent teams.
+A Python-based multi-agent platform inspired by OpenClaw and Hermes, built around explicit ReAct agents, Markdown-based memory, reusable Agent Skills and specialized agent teams.
 
 ---
 
 ## Overview
 
-OpenClaw Agent Team allows a user to interact with a team of specialized AI agents through a unified interface.
+OpenClaw Agent Team lets a user work with a team of specialized AI agents through a unified interface.
 
-Initial agents:
+| Agent | Role |
+|---|---|
+| CEO | Supervisor: understands the request, delegates to the members, assembles the final result |
+| GitHub | Repository, code, issue and pull request work |
+| LinkedIn | Profile and prospect research, content creation |
+| Google Email | Search, reading, summarization, triage and drafting of e-mails |
+| Google Research | Web research and source evaluation |
+| Code Executor | Safe execution of code, data analysis, testing |
+| Writer | Technical documents and reports in Markdown, LaTeX and PDF |
+
+The system can support further business agents (Marketing, Sales, Finance, Operations, HR, Legal, DevOps, ...).
+
+---
+
+## Architecture
 
 ```text
-GitHub Agent
-LinkedIn Agent
-Google Email Agent
-Google Research Agent
-Code Executor Agent
-Writer / Documentation Agent
+                                         USER
+                                           │
+                                           ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                                   C H A N N E L S                                   │
+│                                                                                     │
+│      ┌────────────────┐       ┌──────────────────┐       ┌──────────────────┐       │
+│      │      CLI       │       │     WebChat      │       │     Telegram     │       │
+│      │                │       │    HTTP + SSE    │       │   long polling   │       │
+│      └────────────────┘       └──────────────────┘       └──────────────────┘       │
+│                                                                                     │
+└──────────────────────────────────────────┬──────────────────────────────────────────┘
+                                           │
+                                           ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                                A P P L I C A T I O N                                │
+│                                                                                     │
+│       ┌──────────────┐       ┌──────────────────┐       ┌───────────────────┐       │
+│       │   RunTask    │       │  ReAct Runtime   │       │      Approval     │       │
+│       │              │       │ context · tools  │       │ human in the loop │       │
+│       └──────────────┘       └──────────────────┘       └───────────────────┘       │
+│                                                                                     │
+└──────────────────────────────────────────┬──────────────────────────────────────────┘
+                                           │
+                                           ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                  T E A M   ·   S U P E R V I S O R   P A T T E R N                  │
+│                                                                                     │
+│                               ┌─────────────────────┐                               │
+│                               │         CEO         │                               │
+│                               │      Supervisor     │                               │
+│                               │    team.delegate    │                               │
+│                               └─────────────────────┘                               │
+│                                          │                                          │
+│       ┌─────────────┬─────────────┬──────┴──────┬─────────────┬─────────────┐       │
+│ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐ │
+│ │   GitHub  │ │  LinkedIn │ │   E-mail  │ │  Research │ │  Executor │ │   Writer  │ │
+│ │   repos   │ │  profiles │ │   Google  │ │    web    │ │  sandbox  │ │    docs   │ │
+│ └───────────┘ └───────────┘ └───────────┘ └───────────┘ └───────────┘ └───────────┘ │
+│                                                                                     │
+└──────────────────────────────────────────┬──────────────────────────────────────────┘
+                                           │
+                                           ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                             I N F R A S T R U C T U R E                             │
+│                                                                                     │
+│    ┌──────────────────┐       ┌──────────────┐       ┌────────────────────────┐     │
+│    │     Markdown     │       │     LLM      │       │      Integrations      │     │
+│    │ memory · skills  │       │   DeepSeek   │       │ GitHub · Google · Web  │     │
+│    └──────────────────┘       └──────────────┘       └────────────────────────┘     │
+│                  ┌──────────────────┐       ┌────────────────────┐                  │
+│                  │     Sandbox      │       │     Documents      │                  │
+│                  │   code · LaTeX   │       │  MD · LaTeX · PDF  │                  │
+│                  └──────────────────┘       └────────────────────┘                  │
+│                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-The system can later support:
+### Agents, tools and approvals
 
-```text
-Marketing
-Sales
-Finance
-Operations
-HR
-Legal
-CEO
-DevOps
-Research
-...
+| Agent | Allowed tools | Approval required |
+|---|---|---|
+| **CEO** | `team.members`, `team.delegate`, `memory.update` | none |
+| **GitHub** | `github.search_repository`, `search_code`, `get_issue`, `get_pull_request`, `get_authenticated_user` | `create_issue`, `comment_issue`, `create_branch`, `create_pull_request` |
+| **LinkedIn** | `linkedin.search_profile`, `get_profile` | `publish_post`, `send_message` |
+| **Google Email** | `google.email_search`, `email_read`, `email_draft` | `email_send` |
+| **Google Research** | `web.search`, `web.open`, `web.extract` | none |
+| **Code Executor** | `code.execute`, `code.terminal`, `code.read_file`, `write_file`, `patch_file`, `web.search`, `web.extract` | none |
+| **Writer** | `docs.read`, `docs.write`, `docs.patch`, `web.*` | `docs.compile_pdf` |
+
+### Life of a task
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant C as Channel
+    participant S as CEO (Supervisor)
+    participant A as Specialized agent
+    participant T as Tool
+    U->>C: request
+    C->>S: task
+    S->>A: team.delegate
+    loop ReAct
+        A->>A: reasoning
+        A->>T: action
+        alt sensitive action
+            T-->>U: approval request
+            U-->>T: approve / reject
+        end
+        T-->>A: observation
+    end
+    A-->>S: result
+    S-->>C: final answer
+    C-->>U: answer + produced files
 ```
 
 ---
 
-# Architecture
+## Core Concepts
 
-```text
-                     USER
-                       │
-             ┌─────────┴─────────┐
-             │      CHANNELS      │
-             │ CLI │ WebChat │ TG │
-             └─────────┬─────────┘
-                       │
-                       ▼
-                ┌─────────────┐
-                │   SUPERVISOR│
-                │     / CEO   │
-                └──────┬──────┘
-                       │
-          ┌────────────┼────────────┐
-          ▼            ▼            ▼
-      GitHub        Research      Email
-       Agent          Agent        Agent
-          │            │            │
-          └────────────┼────────────┘
-                       │
-                       ▼
-                  FINAL RESULT
-```
-
----
-
-# Core Concepts
-
-## Agents
+### Agents
 
 An agent is defined by:
 
@@ -78,12 +137,11 @@ Tools
 Memory
 ```
 
-Agent identity is primarily Markdown-based.
-
-Example:
+Agent identity is primarily Markdown-based:
 
 ```text
 agents/github/
+├── agent.yaml
 ├── SOUL.md
 ├── USER.md
 ├── MEMORY.md
@@ -91,11 +149,11 @@ agents/github/
 └── HEARTBEAT.md
 ```
 
----
+`agent.yaml` declares the agent's skills, its allowed tools, the tools that need approval, its LLM, and an optional `role` (the label shown in the WebChat, 40 characters max).
 
-## Skills
+### Skills
 
-Skills are reusable capabilities.
+Skills are reusable capabilities. A skill can be used by several agents.
 
 ```text
 skills/
@@ -107,11 +165,7 @@ skills/
         └── assets/
 ```
 
-A skill can be reused by multiple agents.
-
----
-
-## Tools
+### Tools
 
 Tools provide access to external systems.
 
@@ -119,71 +173,55 @@ Tools provide access to external systems.
 GitHub
 Google
 LinkedIn
-Web
+Web (search, open, extract)
 Filesystem
 Code execution (sandboxed)
 Documents (Markdown, LaTeX and PDF)
 ```
 
-Agents receive only authorized tools.
+Agents receive only the tools they are authorized to use.
 
----
-
-## Code Executor Agent
+### Code Executor Agent
 
 The Code Executor Agent runs code safely. It writes short Python scripts that orchestrate its tools (Programmatic Tool Calling).
 
 ```text
 Code Executor Agent
-├── execute_code       (Programmatic Tool Calling)
-├── terminal           (sandboxed)
-├── read / write / patch files
+├── code.execute       (Programmatic Tool Calling)
+├── code.terminal      (sandboxed)
+├── code.read_file / code.write_file / code.patch_file
 └── web.search / web.extract   (when needed)
 ```
 
-Skills may include Code Execution, Data Analysis and Testing.
+Skills: Code Execution, Data Analysis, Testing.
 
 A script cannot widen the agent's permissions: every tool it calls goes through the same permission and approval rules as a direct call.
 
-In the WebChat the agent appears like any other agent, with no channel code, and can be addressed directly or through the supervisor. The tool listing shows each tool's real risk level and approval requirement.
+`code.execute` and `code.terminal` run without approval. The code tools are only offered when `OPENCLAW_CODE_SANDBOX=subprocess`. On Windows the sandbox is refused unless `OPENCLAW_CODE_ALLOW_UNISOLATED=true` is set (no network isolation). Limits (timeout, CPU seconds, memory, output size) are set with the `OPENCLAW_CODE_*` variables of `.env.example`.
 
-Status: implemented. The agent `code-executor` is a member of the `default` team; `code.execute` and `code.terminal` run without approval (ADR-025). The code tools are only offered when `OPENCLAW_CODE_SANDBOX=subprocess` (see `.env.example`). The label the WebChat shows for an agent is the optional `role` of its `agent.yaml`. On Windows the sandbox is refused unless `OPENCLAW_CODE_ALLOW_UNISOLATED=true` is set (no network isolation: see ADR-025).
+The agent belongs to the `default` team and can be addressed directly or through the supervisor.
 
----
+### Writer / Documentation Agent
 
-## Writer / Documentation Agent
-
-The Writer / Documentation Agent prepares documents: technical documentation (README, ADR, specifications, changelogs, tutorials), reports, and edits or summaries of existing text. It produces them as Markdown, as LaTeX and as PDF: the agent writes the LaTeX source and a tool compiles it to PDF.
+The Writer prepares documents: technical documentation (README, ADR, specifications, changelogs, tutorials), reports, and edits or summaries of existing text. It produces Markdown, LaTeX and PDF: the agent writes the LaTeX source and a tool compiles it to PDF.
 
 ```text
 Writer / Documentation Agent
-├── read source material
-├── write / patch documents     (Markdown, LaTeX)
-├── compile a LaTeX document to PDF
+├── docs.read
+├── docs.write / docs.patch     (Markdown, LaTeX)
+├── docs.compile_pdf            (requires approval)
 └── web.search / web.open / web.extract   (when needed)
 ```
 
-Skills may include Technical Documentation, Report Writing, Editing and Proofreading, and LaTeX Document Production.
+Skills: Technical Documentation, Report Writing, Editing and Proofreading, LaTeX Document Production.
 
-The agent only prepares documents: it has no tool that publishes, sends or contacts anyone. Publishing and sending stay with the channel agents (LinkedIn, Google Email) and their approvals. Compiling LaTeX is treated as running untrusted code: shell escape disabled, files limited to the document's directory, no network, time limit.
+The writer only prepares documents: it has no tool that publishes, sends or contacts anyone. Publishing and sending stay with the channel agents (LinkedIn, Google Email) and their approvals.
 
-In the WebChat the agent appears like any other agent, with no channel code. The files a task produced (Markdown, LaTeX source, PDF) are offered for download under its answer in the chat, and the Documents page lists every document of the directory, newest first, to open or download. They are served by `GET /api/documents/<path>` and listed by `GET /api/documents` (authenticated, limited to the documents directory, ADR-029). Compiling needs a LaTeX engine installed on the machine (system software, not a Python dependency).
+LaTeX compilation is treated as running untrusted code: shell escape disabled, files limited to the document's directory, no network, time limit. It needs a LaTeX engine installed on the machine (XeLaTeX by default, `OPENCLAW_DOCS_LATEX_ENGINE`). Without an engine, or where network isolation is not available (Windows: `OPENCLAW_DOCS_ALLOW_UNISOLATED=true` compiles anyway, without network isolation), `docs.compile_pdf` is not offered: the agent still runs, delivers the `.tex` source and says that no PDF could be produced.
 
-Status: implemented. The agent `writer` (`Documentation specialist`) is a member of the `default` team. Its tools are `docs.read`, `docs.write`, `docs.patch` and `docs.compile_pdf` (the only one that needs approval), plus `web.search`, `web.open`, `web.extract` and `memory.update`. Documents live in `workspace/shared/reports/` (`OPENCLAW_DOCS_DIR`); the engine is XeLaTeX by default (`OPENCLAW_DOCS_LATEX_ENGINE`, see `.env.example`). Without a LaTeX engine, or where network isolation is not permitted (Windows: set `OPENCLAW_DOCS_ALLOW_UNISOLATED=true` to compile anyway, without network isolation, ADR-027), `docs.compile_pdf` is not offered (it is declared `optional` in `agent.yaml`): the agent still runs, delivers the `.tex` source and says that no PDF could be produced on that machine.
+Documents live in `workspace/shared/reports/` (`OPENCLAW_DOCS_DIR`). The files a task produced are offered for download under the answer in the WebChat, and the Documents page lists every document, newest first. They are served by `GET /api/documents/<path>` and listed by `GET /api/documents` (authenticated, limited to the documents directory).
 
----
-
-## Telegram Channel
-
-`uv run openclaw telegram` starts the bot (long polling, no public address needed). Free text goes to the supervisor of the team (`TELEGRAM_TEAM`, default `OPENCLAW_TEAM`); `/run <agent> <task>` gives a task to one agent; `/agents` lists them.
-
-The bot can send e-mails and run code, so `TELEGRAM_ALLOWED_USER_IDS` (numeric Telegram ids) is mandatory and only these users, in private chats, are served. An action that needs approval arrives as a message with Approve / Reject buttons; no answer within `TELEGRAM_APPROVAL_TIMEOUT` seconds is a rejection. One task runs at a time per chat. The files the writer produced during the task (Markdown, LaTeX, PDF) are sent to the chat as documents after the answer (ADR-030). See ADR-028 and `.env.example`.
-
-Status: implemented and tested against a fake Bot API; not yet run against the real Telegram servers. Not done: group chats, images and voice messages.
-
----
-
-## Memory
+### Memory
 
 Memory uses Markdown as the canonical representation.
 
@@ -192,75 +230,46 @@ MEMORY.md
 USER.md
 ```
 
-This makes agent memory:
-
-* transparent
-* editable
-* versionable
-* inspectable
+This makes agent memory transparent, editable, versionable and inspectable.
 
 ---
 
-# ReAct Runtime
+## ReAct Runtime
 
-The core execution loop is intentionally explicit:
+The execution loop is intentionally explicit:
 
 ```text
-Observation
-     ↓
-Reasoning
-     ↓
-Action
-     ↓
-Observation
-     ↓
-...
-     ↓
-Final Answer
+Observation → Reasoning → Action → Observation → ... → Final Answer
 ```
 
-The runtime controls:
-
-* context
-* memory
-* skills
-* tools
-* permissions
-* approvals
-* execution
-* errors
+The runtime controls context, memory, skills, tools, permissions, approvals, execution and errors.
 
 ---
 
-# LLM
+## LLM
 
-Default provider:
+Default provider: **DeepSeek**.
 
-```text
-DeepSeek
-```
-
-The provider is abstracted behind an application port.
-
-This means the system can later support other models without modifying the domain.
+The provider is abstracted behind an application port, so other models can be supported without modifying the domain.
 
 ---
 
-# Multi-Agent Teams
+## Multi-Agent Teams
 
-The initial team uses a Supervisor architecture.
+Teams are declared in `teams/<id>/team.yaml`. Each one uses a Supervisor architecture.
 
-```text
-                   CEO
-                    │
-       ┌────────────┼────────────┐
-       ↓            ↓            ↓
-   GitHub       Research       Email
-```
+| Team | Supervisor | Members |
+|---|---|---|
+| `default` | ceo | github, linkedin, google-email, google-research, code-executor, writer |
+| `research` | ceo | google-research, github |
+| `growth` | ceo | linkedin, google-research |
+| `executive` | ceo | none |
+
+The active team is selected with `OPENCLAW_TEAM`.
 
 Other patterns are supported conceptually:
 
-### Peer-to-Peer
+**Peer-to-peer**
 
 ```text
 Marketing ↔ Finance
@@ -268,7 +277,7 @@ Marketing ↔ Finance
    Sales ↔ Operations
 ```
 
-### Shared Vault
+**Shared vault**
 
 ```text
 Agent A ──┐
@@ -278,7 +287,44 @@ Agent C ──┘
 
 ---
 
-# Project Structure
+## Channels
+
+### CLI
+
+```bash
+uv run openclaw
+```
+
+### WebChat
+
+```bash
+uv run openclaw web
+```
+
+HTTP/SSE channel with authentication, task lifecycle, approvals and live event streaming. Host and port come from `OPENCLAW_WEB_HOST` and `OPENCLAW_WEB_PORT`. Each agent appears with its `role` label, and the tool listing shows each tool's real risk level and approval requirement.
+
+### Telegram
+
+```bash
+uv run openclaw telegram
+```
+
+The bot uses long polling (no public address needed).
+
+* Free text goes to the supervisor of the team (`TELEGRAM_TEAM`, default `OPENCLAW_TEAM`)
+* `/run <agent> <task>` gives a task to one agent
+* `/agents` lists the agents
+* Only the users listed in `TELEGRAM_ALLOWED_USER_IDS` (numeric Telegram ids, mandatory), in private chats, are served
+* An action that needs approval arrives as a message with Approve / Reject buttons; no answer within `TELEGRAM_APPROVAL_TIMEOUT` seconds counts as a rejection
+* One task runs at a time per chat
+* Answers are sent as Telegram HTML: the Markdown of the agents (headings, bold, italic, strike-through, code, code blocks, links, lists, block quotes, tables) is converted and the rest is escaped; a message Telegram refuses is sent again as plain text
+* The files the writer produced during the task (Markdown, LaTeX, PDF) are sent to the chat as documents after the answer
+
+Group chats, images and voice messages are not supported.
+
+---
+
+## Project Structure
 
 ```text
 openclaw-agent-team/
@@ -288,111 +334,46 @@ openclaw-agent-team/
 ├── teams/
 ├── workspace/
 ├── tests/
-├── docs/
-│
-├── README.md
-├── requirements.md
-├── ARCHITECTURE.md
-├── DECISIONS.md
-└── CHANGELOG.md
+├── scripts/
+└── pyproject.toml
 ```
 
 ---
 
-# Technology
-
-Core:
+## Technology
 
 ```text
-Python
-DeepSeek
-Markdown
-```
-
-Architecture:
-
-```text
-DDD
-Hexagonal Architecture
-ReAct
-Agent Skills
-```
-
-Optional infrastructure:
-
-```text
-LangChain
-LangGraph
-```
-
-Integrations:
-
-```text
-GitHub
-Google
-LinkedIn
-Web
-```
-
-Channels:
-
-```text
-CLI
-WebChat
-Telegram
+Python · DeepSeek · Markdown
+DDD · Hexagonal Architecture · ReAct · Agent Skills
+Integrations: GitHub, Google, LinkedIn, Web (Tavily, Brave)
+Channels: CLI, WebChat, Telegram
+Optional infrastructure: LangChain, LangGraph
 ```
 
 ---
 
-# Design Philosophy
-
-The project follows a simple principle:
+## Design Philosophy
 
 > Agents should be composed from text, skills and capabilities rather than hard-coded classes.
 
-A new agent should ideally require:
-
-```text
-SOUL.md
-USER.md
-MEMORY.md
-AGENTS.md
-HEARTBEAT.md
-```
-
-A new capability should ideally require:
-
-```text
-SKILL.md
-```
-
-A new external integration requires a tool adapter.
+* A new agent is a folder with `agent.yaml`, `SOUL.md`, `USER.md`, `MEMORY.md`, `AGENTS.md` and `HEARTBEAT.md`
+* A new capability is a `SKILL.md`
+* A new external integration is a tool adapter
 
 ---
 
-# Security
+## Security
 
 The system follows least privilege.
 
-Agents do not automatically receive access to all tools.
-
-Sensitive actions can require human approval.
-
-Examples:
-
-```text
-Send email
-Publish LinkedIn content
-Send messages
-Modify repositories
-Delete resources
-```
-
-Secrets are never stored in Markdown memory.
+* Agents do not automatically receive access to all tools
+* Sensitive actions require human approval: sending e-mail, publishing LinkedIn content, sending messages, creating issues, branches and pull requests, compiling documents
+* Code and LaTeX run in a restricted sandbox
+* Secrets are never stored in Markdown memory
 
 ---
 
-# Development
+## Getting Started
 
 Install dependencies:
 
@@ -400,129 +381,44 @@ Install dependencies:
 uv sync
 ```
 
-Run the CLI:
+Create `.env` from `.env.example`, then start a channel:
 
 ```bash
-uv run openclaw
+uv run openclaw            # CLI
+uv run openclaw web        # WebChat
+uv run openclaw telegram   # Telegram
 ```
 
-Run tests:
+Run tests and linting:
 
 ```bash
 uv run pytest
-```
-
-Run linting:
-
-```bash
 uv run ruff check .
 ```
 
 ---
 
-# Environment
+## Configuration
 
-Create:
+The CLI loads the project `.env` through `python-dotenv` without overriding variables already set by the shell.
 
-```text
-.env
-```
-
-from:
-
-```text
-.env.example
-```
-
-Required configuration will include the selected LLM provider and credentials for enabled integrations.
-
-The WebChat server reads `OPENCLAW_WEB_HOST` and `OPENCLAW_WEB_PORT` from the process environment;
-the CLI loads the project `.env` through `python-dotenv` without overriding variables already set
-by the shell. Start it with `uv run openclaw web` (or `uv run openclaw run web`).
-
-The Telegram bot reads `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_USER_IDS` (mandatory), and optionally `TELEGRAM_TEAM`, `TELEGRAM_APPROVAL_TIMEOUT` and `TELEGRAM_API_URL`. Start it with `uv run openclaw telegram`.
+| Variable | Purpose |
+|---|---|
+| `LLM_PROVIDER`, `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` | LLM provider |
+| `GITHUB_TOKEN` | GitHub access |
+| `GOOGLE_CREDENTIALS_FILE`, `GOOGLE_TOKEN_FILE` | Google access |
+| `LINKEDIN_ACCESS_TOKEN` | LinkedIn access |
+| `WEB_SEARCH_PROVIDERS`, `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY` | Web search providers, in fallback order (default `tavily,brave`) |
+| `OPENCLAW_TEAM` | Active team |
+| `OPENCLAW_WORKSPACE`, `OPENCLAW_LOG_LEVEL` | Workspace directory, logging |
+| `OPENCLAW_WEB_HOST`, `OPENCLAW_WEB_PORT` | WebChat server |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USER_IDS` | Telegram bot (both mandatory) |
+| `TELEGRAM_TEAM`, `TELEGRAM_APPROVAL_TIMEOUT`, `TELEGRAM_API_URL` | Telegram options |
+| `OPENCLAW_CODE_SANDBOX`, `OPENCLAW_CODE_*` | Code sandbox mode and limits |
+| `OPENCLAW_DOCS_DIR`, `OPENCLAW_DOCS_LATEX_ENGINE`, `OPENCLAW_DOCS_*` | Documents directory and LaTeX compilation |
 
 ---
 
-# Documentation
-
-Architecture:
-
-```text
-ARCHITECTURE.md
-```
-
-Requirements:
-
-```text
-requirements.md
-```
-
-Architecture decisions:
-
-```text
-DECISIONS.md
-```
-
-Changes:
-
-```text
-CHANGELOG.md
-```
-
----
-
-# Roadmap
-
-## Phase 1 - Foundation
-
-* Project bootstrap
-* Domain model
-* Hexagonal architecture
-* Configuration
-* Logging
-
-## Phase 2 - Agent Runtime
-
-* ReAct loop
-* Context management
-* Tool execution
-* Skill loading
-* Memory
-
-## Phase 3 - Integrations
-
-* GitHub
-* Google
-* Web research
-* LinkedIn
-* Code execution (sandboxed)
-* Documents (Markdown, LaTeX and PDF)
-
-## Phase 4 - Teams
-
-* Supervisor
-* Delegation
-* Agent messaging
-* Shared memory
-
-## Phase 5 - Channels
-
-* CLI
-* WebChat (HTTP/SSE channel with auth, task lifecycle, approvals and live event streaming)
-* Telegram (long polling, allow-list, approvals as inline buttons)
-
-## Phase 6 - Production
-
-* Authentication
-* Approval policies
-* Observability
-* Persistent execution history
-* Security hardening
-* Evaluation framework
-
----
-
-# License
+## License
 
 License to be defined.
