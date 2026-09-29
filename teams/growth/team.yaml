@@ -1,0 +1,7 @@
+team:
+  id: growth
+  pattern: supervisor
+  supervisor: ceo
+  members:
+    - linkedin
+    - google-research

@@ -1,0 +1,5 @@
+team:
+  id: executive
+  pattern: supervisor
+  supervisor: ceo
+  members: []

@@ -1,0 +1,7 @@
+team:
+  id: research
+  pattern: supervisor
+  supervisor: ceo
+  members:
+    - google-research
+    - github

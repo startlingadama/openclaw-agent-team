@@ -1,0 +1,11 @@
+team:
+  id: default
+  pattern: supervisor
+  supervisor: ceo
+  members:
+    - github
+    - linkedin
+    - google-email
+    - google-research
+    - code-executor
+    - writer
